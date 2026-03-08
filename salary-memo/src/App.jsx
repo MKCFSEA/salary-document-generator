@@ -583,7 +583,7 @@ export default function App() {
         <div style={{ textAlign: "center", paddingTop: 8 }}>
           <button onClick={generate} disabled={!canGenerate || status === "loading"}
             style={{ background: !canGenerate ? "#94a3b8" : RED, color: "#fff", border: "none", padding: "15px 48px", borderRadius: 50, fontSize: 14, fontWeight: 700, fontFamily: FONT, cursor: canGenerate ? "pointer" : "not-allowed", letterSpacing: "0.04em", boxShadow: canGenerate ? "0 4px 20px rgba(224,32,32,0.35)" : "none" }}>
-            {status === "loading" ? "Generating…" : "Generate Salary Memo →"}
+            {status === "loading" ? "Generating…" : "Generate Salary Document →"}
           </button>
           {!canGenerate && <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 8 }}>Fill in candidate name and offer base salary to continue</div>}
           {status === "done" && (
