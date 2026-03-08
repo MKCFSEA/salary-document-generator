@@ -1,5 +1,5 @@
 {
-  "name": "salary-memo-builder",
+  "name": "salary-document-generator",
   "version": "1.0.0",
   "scripts": {
     "dev": "vite",
@@ -8,7 +8,9 @@
   },
   "dependencies": {
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "docx": "^8.5.0",
+    "file-saver": "^2.0.5"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.0.0",
