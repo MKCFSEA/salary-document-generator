@@ -1,4 +1,10 @@
 import { useState } from "react";
+import {
+  Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+  AlignmentType, BorderStyle, WidthType, ShadingType, LevelFormat,
+  ExternalHyperlink, VerticalAlign
+} from "docx";
+import { saveAs } from "file-saver";
 
 const n = (v) => parseFloat(v) || 0;
 const fmt = (v) => v ? `MYR ${Number(v).toLocaleString("en-MY", { minimumFractionDigits: 0 })}` : "—";
@@ -142,21 +148,6 @@ function JustificationBlock({ items, onChange }) {
 
 // ─── Generate DOCX directly in browser via docx CDN ──────────────────────────
 async function generateDocx(payload) {
-  if (!window.docx) {
-    await new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src = "https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js";
-      s.onload = resolve;
-      s.onerror = reject;
-      document.head.appendChild(s);
-    });
-  }
-
-  const {
-    Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-    AlignmentType, BorderStyle, WidthType, ShadingType, LevelFormat,
-    ExternalHyperlink, VerticalAlign
-  } = window.docx;
 
   const MYR = (v) => (v && n(v)) ? `MYR ${Number(v).toLocaleString("en-MY")}` : "—";
   const fmtD = (v) => { if (v === null || v === undefined) return "—"; const s = v > 0 ? "▲" : "▼"; return `${s} ${Math.abs(v).toFixed(2)}%`; };
@@ -360,14 +351,8 @@ async function generateDocx(payload) {
     }]
   });
 
-  const buffer = await Packer.toBuffer(doc);
-  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `SalaryMemo_${name.replace(/\s+/g, "_")}.docx`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const buffer = await Packer.toBlob(doc);
+  saveAs(buffer, `SalaryMemo_${name.replace(/\s+/g, "_")}.docx`);
 }
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
@@ -455,8 +440,8 @@ export default function App() {
             <span style={{ color: "#fff", fontSize: 18, fontWeight: 900 }}>S</span>
           </div>
           <div>
-            <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>Salary Justification Builder</div>
-            <div style={{ color: "#94a3b8", fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase" }}>Salary Document</div>
+            <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>Salary Document Builder</div>
+            <div style={{ color: "#94a3b8", fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase" }}>E-Commerce</div>
           </div>
           {isPremium && (
             <div style={{ marginLeft: "auto", background: "#7f1d1d", border: "1px solid #dc2626", borderRadius: 8, padding: "6px 14px", display: "flex", alignItems: "center", gap: 8 }}>
