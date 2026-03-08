@@ -8,9 +8,10 @@ import { saveAs } from "file-saver";
 
 const n = (v) => parseFloat(v) || 0;
 const fmt = (v) => v ? `MYR ${Number(v).toLocaleString("en-MY", { minimumFractionDigits: 0 })}` : "—";
-const pct = (curr, offer) => { const c = n(curr), o = n(offer); if (!c || !o) return null; return ((o - c) / c) * 100; };
+const pct = (c, o) => { const cv = n(c), ov = n(o); if (!cv || !ov) return null; return ((ov - cv) / cv) * 100; };
 const fmtPct = (val) => { if (val === null || isNaN(val)) return "—"; const s = val >= 0 ? "▲" : "▼"; return `${s} ${Math.abs(val).toFixed(2)}%`; };
 const pctColor = (val) => { if (val === null) return "#999"; return val > 0 ? "#16a34a" : "#dc2626"; };
+const sumAllow = (rows) => rows.reduce((s, r) => s + n(r.amount), 0);
 
 const FONT = "'IBM Plex Sans', 'Segoe UI', sans-serif";
 const RED = "#E02020";
@@ -21,6 +22,51 @@ const labelStyle = { display: "block", fontSize: 11, fontWeight: 600, letterSpac
 const autoStyle = { padding: "9px 11px", background: "#f3f4f6", borderRadius: 6, fontSize: 13, fontFamily: FONT, color: "#374151", fontWeight: 600, border: "1px solid #e5e7eb" };
 
 const JUSTIFICATION_OPTIONS = ["Talent Scarcity", "Business Urgency", "Loss in Cash", "Others"];
+const newRow = () => ({ id: Date.now() + Math.random(), type: "", amount: "" });
+
+const FREQ_OPTIONS = ["Monthly", "Quarterly", "Bi-annually", "Annually", "One-time"];
+
+function AllowanceEditor({ rows, onChange, label }) {
+  const add = () => onChange([...rows, { id: Date.now() + Math.random(), type: "", amount: "", freq: "Monthly" }]);
+  const remove = (id) => onChange(rows.filter(r => r.id !== id));
+  const update = (id, field, val) => onChange(rows.map(r => r.id === id ? { ...r, [field]: val } : r));
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <label style={labelStyle}>{label}</label>
+        <button onClick={add} style={{ background: RED, color: "#fff", border: "none", borderRadius: 6, padding: "4px 14px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: FONT }}>+ Add Row</button>
+      </div>
+      {rows.length === 0 && (
+        <div style={{ padding: "12px 14px", background: "#f9fafb", border: "1px dashed #e5e7eb", borderRadius: 6, fontSize: 12, color: "#9ca3af", fontStyle: "italic" }}>
+          No allowances — click Add Row to add one
+        </div>
+      )}
+      {rows.map((r) => (
+        <div key={r.id} style={{ display: "grid", gridTemplateColumns: "1fr 130px 130px 36px", gap: "0 8px", marginBottom: 8, alignItems: "center" }}>
+          <input value={r.type} onChange={e => update(r.id, "type", e.target.value)}
+            placeholder="Allowance type e.g. Transport, Housing"
+            style={inputStyle}
+            onFocus={e => e.target.style.borderColor = RED} onBlur={e => e.target.style.borderColor = "#d1d5db"} />
+          <input type="number" value={r.amount} onChange={e => update(r.id, "amount", e.target.value)}
+            placeholder="Amount (MYR)"
+            style={{ ...inputStyle, textAlign: "right" }}
+            onFocus={e => e.target.style.borderColor = RED} onBlur={e => e.target.style.borderColor = "#d1d5db"} />
+          <select value={r.freq || "Monthly"} onChange={e => update(r.id, "freq", e.target.value)}
+            style={{ ...inputStyle, cursor: "pointer" }}
+            onFocus={e => e.target.style.borderColor = RED} onBlur={e => e.target.style.borderColor = "#d1d5db"}>
+            {FREQ_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
+          </select>
+          <button onClick={() => remove(r.id)} style={{ background: "none", border: "1px solid #fca5a5", color: "#ef4444", borderRadius: 6, width: 36, height: 38, cursor: "pointer", fontSize: 14, fontWeight: 700 }}>✕</button>
+        </div>
+      ))}
+      {rows.length > 0 && (
+        <div style={{ textAlign: "right", fontSize: 12, fontWeight: 700, color: DARK, marginTop: 4 }}>
+          Monthly equiv: {fmt(sumAllow(rows))} &nbsp;|&nbsp; Annual equiv: {fmt(sumAllow(rows) * 12)}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Field({ label, value, onChange, type = "text", placeholder = "", hint, autoVal }) {
   if (autoVal !== undefined) return (
@@ -58,19 +104,20 @@ function Grid({ cols = 2, children }) {
   return <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: "0 18px" }}>{children}</div>;
 }
 
-function DeltaPreview({ curr, offer, signOn }) {
+function DeltaPreview({ curr, offer, signOn, currAllowances, offerAllowances }) {
+  const cAllow = sumAllow(currAllowances);
+  const oAllow = sumAllow(offerAllowances);
   const rows = [
     { label: "Monthly Base", c: curr.monthly, o: offer.monthly },
     { label: "Annual Base (×12)", c: curr.annual, o: offer.annual },
-    { label: "Monthly Fixed Allowance", c: curr.allowance || null, o: offer.allowance || null },
-    { label: "Annual Allowance (×12)", c: curr.annualAllowance || null, o: offer.annualAllowance || null },
-    { label: "Total RSU / Options", c: curr.rsuTotal || null, o: offer.rsuTotal || null },
-    { label: "Annualised RSU / Options", c: curr.rsuAnnual || null, o: offer.rsuAnnual || null },
+    ...(cAllow || oAllow ? [{ label: "Total Allowance / month", c: cAllow || null, o: oAllow || null }] : []),
+    ...(curr.rsuTotal || offer.rsuTotal ? [{ label: "RSU / Options (Total)", c: curr.rsuTotal || null, o: offer.rsuTotal || null }] : []),
+    ...(curr.rsuAnnual || offer.rsuAnnual ? [{ label: "RSU / Options (Annualised)", c: curr.rsuAnnual || null, o: offer.rsuAnnual || null }] : []),
     { label: "Target Bonus", c: curr.bonus, o: offer.bonus },
     { label: "Total Cash / Year", c: curr.ttc, o: offer.ttc, bold: true },
-    { label: "Sign-on (one-time)", c: null, o: signOn || null },
+    ...(signOn ? [{ label: "Sign-on (one-time)", c: null, o: signOn }] : []),
     { label: "Effective 1st-Year Pkg", c: curr.ttc, o: offer.firstYear, bold: true, highlight: true },
-  ].filter(r => ["Monthly Base","Annual Base (×12)","Target Bonus","Total Cash / Year","Sign-on (one-time)","Effective 1st-Year Pkg"].includes(r.label) || r.c || r.o);
+  ];
   const th = { padding: "8px 12px", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "#fff", background: DARK };
   const td = (bold, hi) => ({ padding: "8px 12px", fontSize: 12, fontWeight: bold ? 700 : 400, background: hi ? "#fef9c3" : "transparent", borderBottom: "1px solid #f3f4f6", fontFamily: FONT });
   return (
@@ -146,9 +193,7 @@ function JustificationBlock({ items, onChange }) {
   );
 }
 
-// ─── Generate DOCX directly in browser via docx CDN ──────────────────────────
 async function generateDocx(payload) {
-
   const MYR = (v) => (v && n(v)) ? `MYR ${Number(v).toLocaleString("en-MY")}` : "—";
   const fmtD = (v) => { if (v === null || v === undefined) return "—"; const s = v > 0 ? "▲" : "▼"; return `${s} ${Math.abs(v).toFixed(2)}%`; };
   const pctC = (c, o) => { if (!n(c) || !n(o)) return null; return ((n(o) - n(c)) / n(c)) * 100; };
@@ -156,10 +201,8 @@ async function generateDocx(payload) {
   const bdr = { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" };
   const borders = { top: bdr, bottom: bdr, left: bdr, right: bdr };
   const mg = { top: 80, bottom: 80, left: 120, right: 120 };
-
-  // Column widths — must sum to 9026 DXA
-  const CI = [2200, 1626, 2200, 3000]; // info table
-  const CC = [3200, 1800, 1800, 2226]; // comp table
+  const CI = [2200, 1626, 2200, 3000];
+  const CC = [3200, 1800, 1800, 2226];
 
   const tc = (text, { w, bg = "FFFFFF", bold = false, color = "000000", align = AlignmentType.LEFT, colspan, size = 20 } = {}) =>
     new TableCell({
@@ -181,66 +224,60 @@ async function generateDocx(payload) {
     tc(rV, { w: CI[3], bg }),
   ]});
 
-  const compRow = (label, curr, ofr, deltaNum, even = true, boldRow = false) => {
+  const compRow = (label, cV, oV, dNum, even = true, boldRow = false) => {
     const bg = even ? "FFFFFF" : "F9FAFB";
-    const dStr = fmtD(deltaNum);
-    const dColor = deltaNum === null ? "AAAAAA" : deltaNum < 0 ? "16A34A" : "DC2626";
+    const dColor = dNum === null ? "AAAAAA" : dNum < 0 ? "16A34A" : "DC2626";
     return new TableRow({ children: [
       tc(label, { w: CC[0], bg, bold: boldRow }),
-      tc(curr,  { w: CC[1], bg, bold: boldRow, align: AlignmentType.RIGHT }),
-      tc(ofr,   { w: CC[2], bg, bold: boldRow, align: AlignmentType.RIGHT }),
-      tc(dStr,  { w: CC[3], bg, bold: boldRow, color: dColor, align: AlignmentType.RIGHT }),
+      tc(cV,    { w: CC[1], bg, bold: boldRow, align: AlignmentType.RIGHT }),
+      tc(oV,    { w: CC[2], bg, bold: boldRow, align: AlignmentType.RIGHT }),
+      tc(fmtD(dNum), { w: CC[3], bg, bold: boldRow, color: dColor, align: AlignmentType.RIGHT }),
     ]});
   };
 
-  const heading = (text) => new Paragraph({
-    spacing: { before: 240, after: 100 },
-    children: [new TextRun({ text, bold: true, font: "Arial", size: 26 })]
-  });
-
-  const para = (text) => new Paragraph({
-    spacing: { before: 60, after: 60 },
-    children: [new TextRun({ text, font: "Arial", size: 20 })]
-  });
-
+  const heading = (text) => new Paragraph({ spacing: { before: 240, after: 100 }, children: [new TextRun({ text, bold: true, font: "Arial", size: 26 })] });
+  const para = (text) => new Paragraph({ spacing: { before: 60, after: 60 }, children: [new TextRun({ text, font: "Arial", size: 20 })] });
   const spacer = () => new Paragraph({ spacing: { before: 100, after: 0 }, children: [new TextRun("")] });
-
-  const bullet = (text) => new Paragraph({
-    numbering: { reference: "bullets", level: 0 },
-    spacing: { before: 40, after: 40 },
-    children: [new TextRun({ text, font: "Arial", size: 20 })]
-  });
-
-  const numbered = (ref, text, bold = false) => new Paragraph({
-    numbering: { reference: ref, level: 0 },
-    spacing: { before: 60, after: 40 },
-    children: [new TextRun({ text, font: "Arial", size: 20, bold })]
-  });
+  const bullet = (text) => new Paragraph({ numbering: { reference: "bullets", level: 0 }, spacing: { before: 40, after: 40 }, children: [new TextRun({ text, font: "Arial", size: 20 })] });
+  const numbered = (ref, text, bold = false) => new Paragraph({ numbering: { reference: ref, level: 0 }, spacing: { before: 60, after: 40 }, children: [new TextRun({ text, font: "Arial", size: 20, bold })] });
 
   const { curr, offer, name, peopleLink, jobTitle, jobFamily, jobLevel,
-    education, experience, currentEmployer, justification } = payload;
+    education, experience, currentEmployer, justification, currAllowances, offerAllowances } = payload;
 
   const expLines = (experience || "").split("\n").filter(l => l.trim());
 
-  // Build comp rows — only show optional rows if data exists
+  // Build comp rows
   const compRows = [];
   let even = true;
-  const cr = (label, c, o, d) => { compRows.push(compRow(label, c, o, d, even)); even = !even; };
+  const cr = (label, c, o, d, bold = false) => { compRows.push(compRow(label, c, o, d, even, bold)); even = !even; };
 
-  cr("Monthly Base",         MYR(curr.monthly),  MYR(offer.monthly),  pctC(curr.monthly, offer.monthly));
-  cr("Month",                "12",               "12",                null);
-  if (n(curr.allowance) || n(offer.allowance))
-    cr("Monthly Fixed Allowance", MYR(curr.allowance), MYR(offer.allowance), pctC(curr.allowance, offer.allowance));
+  cr("Monthly Base", MYR(curr.monthly), MYR(offer.monthly), pctC(curr.monthly, offer.monthly));
+  cr("Month", "12", "12", null);
+
+  // Get unique allowance type names across both current and offer
+  const allTypes = [...new Set([
+    ...currAllowances.map(r => r.type || "Allowance"),
+    ...offerAllowances.map(r => r.type || "Allowance"),
+  ])];
+  allTypes.forEach(type => {
+    const cR = currAllowances.find(r => (r.type || "Allowance") === type);
+    const oR = offerAllowances.find(r => (r.type || "Allowance") === type);
+    cr(type, MYR(cR?.amount), MYR(oR?.amount), pctC(cR?.amount, oR?.amount));
+  });
+  const cAllowTotal = sumAllow(currAllowances);
+  const oAllowTotal = sumAllow(offerAllowances);
+  if (allTypes.length > 1) cr("Total Allowance / month", MYR(cAllowTotal), MYR(oAllowTotal), pctC(cAllowTotal, oAllowTotal));
+
   if (n(curr.rsuTotal) || n(offer.rsuTotal))
-    cr("Stock / Option (Total)",  MYR(curr.rsuTotal),  MYR(offer.rsuTotal),  pctC(curr.rsuTotal, offer.rsuTotal));
+    cr("Stock / Option (Total Grant)", MYR(curr.rsuTotal), MYR(offer.rsuTotal), pctC(curr.rsuTotal, offer.rsuTotal));
   if (n(curr.rsuAnnual) || n(offer.rsuAnnual))
     cr("Stock / Option (Annualised)", MYR(curr.rsuAnnual), MYR(offer.rsuAnnual), pctC(curr.rsuAnnual, offer.rsuAnnual));
-  cr("Target Bonus (month)", MYR(curr.bonus),    MYR(offer.bonus),    pctC(curr.bonus, offer.bonus));
-  cr("Other Cash / Year",    "—",                "—",                 null);
-  cr("Total Cash / Year",    MYR(curr.ttc),      MYR(offer.ttc),      pctC(curr.ttc, offer.ttc));
+
+  cr("Target Bonus (month)", MYR(curr.bonus), MYR(offer.bonus), pctC(curr.bonus, offer.bonus));
+  cr("Other Cash / Year", "—", "—", null);
+  cr("Total Cash / Year", MYR(curr.ttc), MYR(offer.ttc), pctC(curr.ttc, offer.ttc));
   compRows.push(compRow("Total Package", MYR(curr.ttc), MYR(offer.ttc), pctC(curr.ttc, offer.ttc), even, true));
 
-  // Summary text
   const bD = pctC(curr.monthly, offer.monthly);
   const tD = pctC(curr.ttc, offer.ttc);
   const summaryLines = [
@@ -248,6 +285,15 @@ async function generateDocx(payload) {
     tD !== null ? `TTC ${tD < 0 ? "decrease" : "increase"} by ${Math.abs(tD).toFixed(2)}%` : null,
     tD !== null ? `Total package ${tD < 0 ? "decrease" : "increase"} by ${Math.abs(tD).toFixed(2)}%` : null,
   ].filter(Boolean);
+
+  // Breakdown bullets under Monthly Gross Base line
+  const breakdownLines = [
+    ...currAllowances.filter(r => n(r.amount)).map(r => `${r.type || "Allowance"}: ${MYR(r.amount)} (${r.freq || "Monthly"})`),
+    ...(n(curr.rsuTotal) ? [
+      `RSU / Stock Options — Total Grant: ${MYR(curr.rsuTotal)}`,
+      `RSU / Stock Options — Annualised (over ${curr.rsuVestYears || "?"} years): ${MYR(curr.rsuAnnual)}`,
+    ] : []),
+  ];
 
   const doc = new Document({
     numbering: {
@@ -260,10 +306,7 @@ async function generateDocx(payload) {
     sections: [{
       properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1080, right: 1260, bottom: 1080, left: 1260 } } },
       children: [
-        // Title
         new Paragraph({ spacing: { before: 0, after: 160 }, children: [new TextRun({ text: `Salary - ${name}`, bold: true, font: "Arial", size: 40 })] }),
-
-        // Basic Info
         heading("Basic information:"),
         new Paragraph({ numbering: { reference: "numbers", level: 0 }, spacing: { before: 60, after: 40 },
           children: [
@@ -277,44 +320,39 @@ async function generateDocx(payload) {
         numbered("numbers", "Background:"),
         ...(education ? [bullet(education)] : []),
         ...expLines.map(l => bullet(l.trim())),
-
         spacer(),
 
-        // Current Salary
         heading("Current/Last Drawn Salary Details"),
         para(`Monthly Gross Base: ${MYR(curr.monthly)} x 12`),
+        ...breakdownLines.map(l => bullet(l)),
         spacer(),
 
         new Table({
           width: { size: 9026, type: WidthType.DXA },
-          columnWidths: [CI[0], CI[1], CI[2], CI[3]],
+          columnWidths: CI,
           rows: [
             new TableRow({ children: [new TableCell({
-              borders, columnSpan: 4,
-              width: { size: 9026, type: WidthType.DXA },
-              shading: { fill: "F59E0B", type: ShadingType.CLEAR },
-              margins: mg,
+              borders, columnSpan: 4, width: { size: 9026, type: WidthType.DXA },
+              shading: { fill: "F59E0B", type: ShadingType.CLEAR }, margins: mg,
               children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 },
                 children: [new TextRun({ text: "候选人信息/Candidate Information", bold: true, font: "Arial", size: 22, color: "FFFFFF" })] })]
             })] }),
-            infoRow("Name",               name || "—",              "Job Family",   jobFamily || "—"),
-            infoRow("Bachelor",           education || "—",         "Level",        jobLevel || "—",   "F9FAFB"),
-            infoRow("Master",             "—",                      "TP上限",       "—"),
-            infoRow("Working Experience", currentEmployer || "—",   "TP/TP上限",    "—",               "F9FAFB"),
-            infoRow("Current Employer",   currentEmployer || "—",   "TP下限",       "—"),
-            infoRow("Level",              jobLevel || "—",          "TP/TP下限",    "—",               "F9FAFB"),
+            infoRow("Name",               name || "—",            "Job Family",  jobFamily || "—"),
+            infoRow("Bachelor",           education || "—",       "Level",       jobLevel || "—",  "F9FAFB"),
+            infoRow("Master",             "—",                    "TP上限",      "—"),
+            infoRow("Working Experience", currentEmployer || "—", "TP/TP上限",   "—",              "F9FAFB"),
+            infoRow("Current Employer",   currentEmployer || "—", "TP下限",      "—"),
+            infoRow("Level",              jobLevel || "—",        "TP/TP下限",   "—",              "F9FAFB"),
             new TableRow({ children: [
-              tc("",         { w: CC[0], bg: "1F2937", bold: true, color: "FFFFFF" }),
-              tc("Current",  { w: CC[1], bg: "1F2937", bold: true, color: "FFFFFF", align: AlignmentType.RIGHT }),
-              tc("Offer",    { w: CC[2], bg: "1F2937", bold: true, color: "FFFFFF", align: AlignmentType.RIGHT }),
-              tc("Delta",    { w: CC[3], bg: "1F2937", bold: true, color: "FFFFFF", align: AlignmentType.RIGHT }),
+              tc("",        { w: CC[0], bg: "1F2937", bold: true, color: "FFFFFF" }),
+              tc("Current", { w: CC[1], bg: "1F2937", bold: true, color: "FFFFFF", align: AlignmentType.RIGHT }),
+              tc("Offer",   { w: CC[2], bg: "1F2937", bold: true, color: "FFFFFF", align: AlignmentType.RIGHT }),
+              tc("Delta",   { w: CC[3], bg: "1F2937", bold: true, color: "FFFFFF", align: AlignmentType.RIGHT }),
             ]}),
             ...compRows,
             new TableRow({ children: [new TableCell({
-              borders, columnSpan: 4,
-              width: { size: 9026, type: WidthType.DXA },
-              shading: { fill: "FEF3C7", type: ShadingType.CLEAR },
-              margins: mg,
+              borders, columnSpan: 4, width: { size: 9026, type: WidthType.DXA },
+              shading: { fill: "FEF3C7", type: ShadingType.CLEAR }, margins: mg,
               children: [new Paragraph({ spacing: { before: 0, after: 0 },
                 children: [new TextRun({ text: "备注（涨幅超过30%或突破级别范围请务必备注原因，超过50%请先讨论通过）", font: "Arial", size: 16, color: "92400E", italics: true })] })]
             })] }),
@@ -326,14 +364,12 @@ async function generateDocx(payload) {
         ...summaryLines.map(t => bullet(t)),
         spacer(),
 
-        // Sign-on
         ...(n(offer.signOn) > 0 ? [
           heading("Sign-on bonus proposal"),
           bullet(`Proposed ${offer.signOnMonths} months of bonus at ${MYR(offer.signOn)}, ${offer.signOnPctTTC}% of TP as sign-on bonus, to be paid over ${offer.signOnSchedule || "—"} with ${offer.signOnBond || "—"} bond.`),
           spacer(),
         ] : []),
 
-        // Justification
         ...(justification && justification.length > 0 ? [
           heading("Justification:"),
           ...justification.flatMap(item => [
@@ -344,18 +380,16 @@ async function generateDocx(payload) {
           spacer(),
         ] : []),
 
-        // Salary Documents
         heading("Salary Documents"),
         para("(Documents to be attached in Lark)"),
       ]
     }]
   });
 
-  const buffer = await Packer.toBlob(doc);
-  saveAs(buffer, `Salary_Document_${name.replace(/\s+/g, "_")}.docx`);
+  const blob = await Packer.toBlob(doc);
+  saveAs(blob, `Salary_Document_${name.replace(/\s+/g, "_")}.docx`);
 }
 
-// ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [name, setName] = useState("");
   const [peopleLink, setPeopleLink] = useState("");
@@ -368,14 +402,14 @@ export default function App() {
   const [memoDate, setMemoDate] = useState("");
 
   const [currMonthly, setCurrMonthly] = useState("");
-  const [currAllowance, setCurrAllowance] = useState("");
+  const [currAllowances, setCurrAllowances] = useState([]);
   const [currRSUTotal, setCurrRSUTotal] = useState("");
   const [currRSUVestYears, setCurrRSUVestYears] = useState("");
   const [bonusMonths, setBonusMonths] = useState("");
   const [currBonusOverride, setCurrBonusOverride] = useState("");
 
   const [offerMonthly, setOfferMonthly] = useState("");
-  const [offerAllowance, setOfferAllowance] = useState("");
+  const [offerAllowances, setOfferAllowances] = useState([]);
   const [offerRSUTotal, setOfferRSUTotal] = useState("");
   const [offerRSUVestYears, setOfferRSUVestYears] = useState("");
   const [offerBonusMonths, setOfferBonusMonths] = useState("");
@@ -388,16 +422,16 @@ export default function App() {
   const [status, setStatus] = useState(null);
 
   const currAnnual = n(currMonthly) * 12;
-  const currAnnualAllowance = n(currAllowance) * 12;
+  const currTotalAllowMonthly = sumAllow(currAllowances);
   const currRSUAnnual = (currRSUTotal && currRSUVestYears) ? n(currRSUTotal) / n(currRSUVestYears) : 0;
   const currBonus = currBonusOverride ? n(currBonusOverride) : n(currMonthly) * n(bonusMonths);
-  const currTTC = currAnnual + currAnnualAllowance + currBonus;
+  const currTTC = currAnnual + (currTotalAllowMonthly * 12) + currBonus;
 
   const offerAnnual = n(offerMonthly) * 12;
-  const offerAnnualAllowance = n(offerAllowance) * 12;
+  const offerTotalAllowMonthly = sumAllow(offerAllowances);
   const offerRSUAnnual = (offerRSUTotal && offerRSUVestYears) ? n(offerRSUTotal) / n(offerRSUVestYears) : 0;
   const offerBonus = offerBonusOverride ? n(offerBonusOverride) : n(offerMonthly) * n(offerBonusMonths || bonusMonths);
-  const offerTTC = offerAnnual + offerAnnualAllowance + offerBonus;
+  const offerTTC = offerAnnual + (offerTotalAllowMonthly * 12) + offerBonus;
   const offerFirstYear = offerTTC + n(signOnAmt);
 
   const ttcDelta = pct(currTTC, offerTTC);
@@ -409,8 +443,8 @@ export default function App() {
   const signOnPctTTC = (offerTTC && signOnAmt) ? ((n(signOnAmt) / offerTTC) * 100).toFixed(2) : null;
   const signOnMonths = (offerMonthly && signOnAmt) ? (n(signOnAmt) / n(offerMonthly)).toFixed(2) : null;
 
-  const curr = { monthly: n(currMonthly), annual: currAnnual, allowance: n(currAllowance), annualAllowance: currAnnualAllowance, rsuTotal: n(currRSUTotal), rsuAnnual: currRSUAnnual, bonus: currBonus, ttc: currTTC };
-  const offer = { monthly: n(offerMonthly), annual: offerAnnual, allowance: n(offerAllowance), annualAllowance: offerAnnualAllowance, rsuTotal: n(offerRSUTotal), rsuAnnual: offerRSUAnnual, bonus: offerBonus, ttc: offerTTC, firstYear: offerFirstYear };
+  const curr = { monthly: n(currMonthly), annual: currAnnual, rsuTotal: n(currRSUTotal), rsuAnnual: currRSUAnnual, bonus: currBonus, ttc: currTTC };
+  const offer = { monthly: n(offerMonthly), annual: offerAnnual, rsuTotal: n(offerRSUTotal), rsuAnnual: offerRSUAnnual, bonus: offerBonus, ttc: offerTTC, firstYear: offerFirstYear };
   const canGenerate = !!(name && offerMonthly);
 
   const generate = async () => {
@@ -419,8 +453,9 @@ export default function App() {
     try {
       await generateDocx({
         name, peopleLink, jobTitle, jobFamily, jobLevel, education, experience, currentEmployer, memoDate,
-        curr: { monthly: n(currMonthly), annual: currAnnual, allowance: n(currAllowance), annualAllowance: currAnnualAllowance, rsuTotal: n(currRSUTotal), rsuAnnual: currRSUAnnual, bonusMonths, bonus: currBonus, ttc: currTTC },
-        offer: { monthly: n(offerMonthly), annual: offerAnnual, allowance: n(offerAllowance), annualAllowance: offerAnnualAllowance, rsuTotal: n(offerRSUTotal), rsuAnnual: offerRSUAnnual, bonus: offerBonus, ttc: offerTTC, firstYear: offerFirstYear, signOn: n(signOnAmt), signOnMonths, signOnPctTTC, signOnSchedule, signOnBond },
+        currAllowances, offerAllowances,
+        curr: { ...curr, rsuVestYears: currRSUVestYears },
+        offer: { ...offer, signOn: n(signOnAmt), signOnMonths, signOnPctTTC, signOnSchedule, signOnBond },
         deltas: { base: pct(currMonthly, offerMonthly), ttc: ttcDelta, firstYear: firstYearDelta, isPremium },
         justification: needsJustification ? justItems : [],
       });
@@ -439,10 +474,7 @@ export default function App() {
           <div style={{ width: 36, height: 36, background: RED, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span style={{ color: "#fff", fontSize: 18, fontWeight: 900 }}>S</span>
           </div>
-          <div>
-            <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>Salary Document Builder</div>
-            <div style={{ color: "#94a3b8", fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase" }}>E-Commerce</div>
-          </div>
+          <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>Salary Document Builder</div>
           {isPremium && (
             <div style={{ marginLeft: "auto", background: "#7f1d1d", border: "1px solid #dc2626", borderRadius: 8, padding: "6px 14px", display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 14 }}>⚠️</span>
@@ -456,23 +488,22 @@ export default function App() {
 
         <Card title="1 · Basic Information">
           <Grid>
-            <Field label="Candidate Name" value={name} onChange={setName} placeholder="" />
+            <Field label="Candidate Name" value={name} onChange={setName} />
             <Field label="Date of Memo" value={memoDate} onChange={setMemoDate} type="date" />
           </Grid>
-          <Field label="People Link / Application ID" value={peopleLink} onChange={setPeopleLink} placeholder="" />
+          <Field label="People Link / Application ID" value={peopleLink} onChange={setPeopleLink} />
           <Grid>
-            <Field label="Job Title" value={jobTitle} onChange={setJobTitle} placeholder="" />
-            <Field label="Job Family" value={jobFamily} onChange={setJobFamily} placeholder="" />
+            <Field label="Job Title" value={jobTitle} onChange={setJobTitle} />
+            <Field label="Job Family" value={jobFamily} onChange={setJobFamily} />
           </Grid>
           <Grid>
-            <Field label="Job Level" value={jobLevel} onChange={setJobLevel} placeholder="" />
-            <Field label="Current Employer" value={currentEmployer} onChange={setCurrentEmployer} placeholder="" />
+            <Field label="Job Level" value={jobLevel} onChange={setJobLevel} />
+            <Field label="Current Employer" value={currentEmployer} onChange={setCurrentEmployer} />
           </Grid>
-          <Field label="Education" value={education} onChange={setEducation} placeholder="" />
+          <Field label="Education" value={education} onChange={setEducation} />
           <div style={{ marginBottom: 14 }}>
             <label style={labelStyle}>Experience <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, color: "#9ca3af" }}>— one line per bullet point</span></label>
             <textarea value={experience} onChange={e => setExperience(e.target.value)}
-              placeholder=""
               rows={4} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }}
               onFocus={e => e.target.style.borderColor = RED} onBlur={e => e.target.style.borderColor = "#d1d5db"} />
             {experience && (
@@ -491,28 +522,25 @@ export default function App() {
 
         <Card title="2 · Current / Last Drawn Compensation">
           <Grid>
-            <Field label="Monthly Gross Base (MYR)" value={currMonthly} onChange={setCurrMonthly} type="number" placeholder="" />
+            <Field label="Monthly Gross Base (MYR)" value={currMonthly} onChange={setCurrMonthly} type="number" />
             <Field label="Annual Base (auto)" autoVal={currMonthly ? fmt(currAnnual) : ""} />
           </Grid>
           <Grid>
-            <Field label="Avg Bonus (months)" value={bonusMonths} onChange={setBonusMonths} type="number" placeholder="" hint="Auto-calculates target bonus" />
+            <Field label="Avg Bonus (months)" value={bonusMonths} onChange={setBonusMonths} type="number" hint="Auto-calculates target bonus" />
             <Field label="Target Perf. Bonus (auto)" autoVal={currBonus ? fmt(currBonus) : ""} />
           </Grid>
-          <Field label="Override Bonus Amount (optional)" value={currBonusOverride} onChange={setCurrBonusOverride} type="number" placeholder="" />
-          <Grid>
-            <Field label="Monthly Fixed Allowance (MYR)" value={currAllowance} onChange={setCurrAllowance} type="number" placeholder="" hint="Included in Total Cash/Year" />
-            <Field label="Annual Allowance (auto)" autoVal={currAllowance ? fmt(currAnnualAllowance) : ""} />
-          </Grid>
+          <Field label="Override Bonus Amount (optional)" value={currBonusOverride} onChange={setCurrBonusOverride} type="number" />
+          <AllowanceEditor rows={currAllowances} onChange={setCurrAllowances} label="Allowances (Current)" />
           <div style={{ marginBottom: 14 }}>
-            <label style={labelStyle}>RSU / Stock Options</label>
+            <label style={labelStyle}>RSU / Stock Options (Current)</label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 18px" }}>
-              <Field label="Total RSU Value (MYR)" value={currRSUTotal} onChange={setCurrRSUTotal} type="number" placeholder="" />
-              <Field label="Vesting Period (years)" value={currRSUVestYears} onChange={setCurrRSUVestYears} type="number" placeholder="" />
+              <Field label="Total RSU Value (MYR)" value={currRSUTotal} onChange={setCurrRSUTotal} type="number" />
+              <Field label="Vesting Period (years)" value={currRSUVestYears} onChange={setCurrRSUVestYears} type="number" />
               <Field label="Annualised RSU (auto)" autoVal={currRSUAnnual ? fmt(currRSUAnnual) : ""} hint="Total ÷ Vesting years" />
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-            {[["Annual Base", fmt(currAnnual)], ["Allowance (annual)", currAllowance ? fmt(currAnnualAllowance) : "—"], ["Target Bonus", fmt(currBonus)], ["Total Cash/Year", fmt(currTTC)]].map(([k, v]) => (
+            {[["Annual Base", fmt(currAnnual)], ["Allowance/mo", currTotalAllowMonthly ? fmt(currTotalAllowMonthly) : "—"], ["Target Bonus", fmt(currBonus)], ["Total Cash/Year", fmt(currTTC)]].map(([k, v]) => (
               <div key={k} style={{ flex: 1, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "10px 14px", textAlign: "center" }}>
                 <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#94a3b8", marginBottom: 3 }}>{k}</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: DARK }}>{v}</div>
@@ -523,37 +551,34 @@ export default function App() {
 
         <Card title="3 · Our Offer">
           <Grid>
-            <Field label="Offer Monthly Gross Base (MYR)" value={offerMonthly} onChange={setOfferMonthly} type="number" placeholder="" />
+            <Field label="Offer Monthly Gross Base (MYR)" value={offerMonthly} onChange={setOfferMonthly} type="number" />
             <Field label="Offer Annual Base (auto)" autoVal={offerMonthly ? fmt(offerAnnual) : ""} />
           </Grid>
           <Grid>
-            <Field label="Offer Bonus Months (blank = same as current)" value={offerBonusMonths} onChange={setOfferBonusMonths} type="number" placeholder={bonusMonths ? `Defaulting to ${bonusMonths} months` : "Bonus months"} />
+            <Field label="Offer Bonus Months (blank = same as current)" value={offerBonusMonths} onChange={setOfferBonusMonths} type="number" placeholder={bonusMonths ? `Defaulting to ${bonusMonths} months` : ""} />
             <Field label="Offer Target Bonus (auto)" autoVal={offerBonus ? fmt(offerBonus) : ""} />
           </Grid>
-          <Field label="Override Offer Bonus Amount (optional)" value={offerBonusOverride} onChange={setOfferBonusOverride} type="number" placeholder="" />
-          <Grid>
-            <Field label="Offer Monthly Fixed Allowance (MYR)" value={offerAllowance} onChange={setOfferAllowance} type="number" placeholder="" hint="Included in Offer Total Cash/Year" />
-            <Field label="Offer Annual Allowance (auto)" autoVal={offerAllowance ? fmt(offerAnnualAllowance) : ""} />
-          </Grid>
+          <Field label="Override Offer Bonus Amount (optional)" value={offerBonusOverride} onChange={setOfferBonusOverride} type="number" />
+          <AllowanceEditor rows={offerAllowances} onChange={setOfferAllowances} label="Allowances (Offer)" />
           <div style={{ marginBottom: 14 }}>
-            <label style={labelStyle}>Offer RSU / Stock Options</label>
+            <label style={labelStyle}>RSU / Stock Options (Offer)</label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 18px" }}>
-              <Field label="Total RSU Value (MYR)" value={offerRSUTotal} onChange={setOfferRSUTotal} type="number" placeholder="" />
-              <Field label="Vesting Period (years)" value={offerRSUVestYears} onChange={setOfferRSUVestYears} type="number" placeholder="" />
+              <Field label="Total RSU Value (MYR)" value={offerRSUTotal} onChange={setOfferRSUTotal} type="number" />
+              <Field label="Vesting Period (years)" value={offerRSUVestYears} onChange={setOfferRSUVestYears} type="number" />
               <Field label="Annualised RSU (auto)" autoVal={offerRSUAnnual ? fmt(offerRSUAnnual) : ""} hint="Total ÷ Vesting years" />
             </div>
           </div>
           <Grid>
-            <Field label="Sign-on Bonus (MYR)" value={signOnAmt} onChange={setSignOnAmt} type="number" placeholder="" hint={hasSignOn ? "Justification section required" : ""} />
+            <Field label="Sign-on Bonus (MYR)" value={signOnAmt} onChange={setSignOnAmt} type="number" hint={hasSignOn ? "Justification section required" : ""} />
             <Field label="Sign-on as % of TTC (auto)" autoVal={signOnPctTTC ? `${signOnPctTTC}%  (${signOnMonths} months)` : ""} />
           </Grid>
           {hasSignOn && (
             <Grid>
-              <Field label="Payment Schedule" value={signOnSchedule} onChange={setSignOnSchedule} placeholder="" />
-              <Field label="Bond Period" value={signOnBond} onChange={setSignOnBond} placeholder="" />
+              <Field label="Payment Schedule" value={signOnSchedule} onChange={setSignOnSchedule} />
+              <Field label="Bond Period" value={signOnBond} onChange={setSignOnBond} />
             </Grid>
           )}
-          {offerMonthly && <DeltaPreview curr={curr} offer={offer} signOn={n(signOnAmt)} />}
+          {offerMonthly && <DeltaPreview curr={curr} offer={offer} signOn={n(signOnAmt)} currAllowances={currAllowances} offerAllowances={offerAllowances} />}
           {offerMonthly && (
             <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
               {[["Base Change", pct(currMonthly, offerMonthly)], ["TTC Change", ttcDelta], ["1st-Year Package", firstYearDelta]].map(([k, v]) => (
@@ -588,7 +613,7 @@ export default function App() {
           {!canGenerate && <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 8 }}>Fill in candidate name and offer base salary to continue</div>}
           {status === "done" && (
             <div style={{ marginTop: 16, background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, padding: "14px 20px", display: "inline-block" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#166534" }}>✓ Memo downloaded! Check your Downloads folder.</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#166534" }}>✓ Salary Document downloaded! Check your Downloads folder.</div>
             </div>
           )}
           {status === "error" && <div style={{ fontSize: 12, color: RED, marginTop: 8 }}>Something went wrong — please try again or contact support.</div>}
