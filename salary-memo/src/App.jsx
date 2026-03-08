@@ -456,7 +456,7 @@ export default function App() {
           </div>
           <div>
             <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>Salary Justification Builder</div>
-            <div style={{ color: "#94a3b8", fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase" }}>TikTok Shop · Offer Memo</div>
+            <div style={{ color: "#94a3b8", fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase" }}>Salary Document</div>
           </div>
           {isPremium && (
             <div style={{ marginLeft: "auto", background: "#7f1d1d", border: "1px solid #dc2626", borderRadius: 8, padding: "6px 14px", display: "flex", alignItems: "center", gap: 8 }}>
