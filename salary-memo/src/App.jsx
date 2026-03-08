@@ -352,7 +352,7 @@ async function generateDocx(payload) {
   });
 
   const buffer = await Packer.toBlob(doc);
-  saveAs(buffer, `SalaryMemo_${name.replace(/\s+/g, "_")}.docx`);
+  saveAs(buffer, `Salary_Document_${name.replace(/\s+/g, "_")}.docx`);
 }
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
