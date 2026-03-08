@@ -6,8 +6,32 @@ import {
 } from "docx";
 import { saveAs } from "file-saver";
 
+const SEA_CURRENCIES = [
+  { code: "MYR", label: "MYR — Malaysian Ringgit",   locale: "en-MY", flag: "🇲🇾" },
+  { code: "SGD", label: "SGD — Singapore Dollar",    locale: "en-SG", flag: "🇸🇬" },
+  { code: "IDR", label: "IDR — Indonesian Rupiah",   locale: "id-ID", flag: "🇮🇩" },
+  { code: "THB", label: "THB — Thai Baht",            locale: "th-TH", flag: "🇹🇭" },
+  { code: "PHP", label: "PHP — Philippine Peso",      locale: "en-PH", flag: "🇵🇭" },
+  { code: "VND", label: "VND — Vietnamese Dong",      locale: "vi-VN", flag: "🇻🇳" },
+  { code: "MMK", label: "MMK — Myanmar Kyat",         locale: "my-MM", flag: "🇲🇲" },
+  { code: "KHR", label: "KHR — Cambodian Riel",       locale: "km-KH", flag: "🇰🇭" },
+  { code: "LAK", label: "LAK — Lao Kip",              locale: "lo-LA", flag: "🇱🇦" },
+  { code: "BND", label: "BND — Brunei Dollar",        locale: "ms-BN", flag: "🇧🇳" },
+];
+
 const n = (v) => parseFloat(v) || 0;
-const fmt = (v) => v ? `MYR ${Number(v).toLocaleString("en-MY", { minimumFractionDigits: 0 })}` : "—";
+
+const fmtCurrency = (v, code, locale) => {
+  if (!v && v !== 0) return "—";
+  const num = Number(v);
+  if (!num) return "—";
+  try {
+    return `${code} ${num.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  } catch {
+    return `${code} ${num.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  }
+};
+
 const pct = (c, o) => { const cv = n(c), ov = n(o); if (!cv || !ov) return null; return ((ov - cv) / cv) * 100; };
 const fmtPct = (val) => { if (val === null || isNaN(val)) return "—"; const s = val >= 0 ? "▲" : "▼"; return `${s} ${Math.abs(val).toFixed(2)}%`; };
 const pctColor = (val) => { if (val === null) return "#999"; return val > 0 ? "#16a34a" : "#dc2626"; };
@@ -22,11 +46,9 @@ const labelStyle = { display: "block", fontSize: 11, fontWeight: 600, letterSpac
 const autoStyle = { padding: "9px 11px", background: "#f3f4f6", borderRadius: 6, fontSize: 13, fontFamily: FONT, color: "#374151", fontWeight: 600, border: "1px solid #e5e7eb" };
 
 const JUSTIFICATION_OPTIONS = ["Talent Scarcity", "Business Urgency", "Loss in Cash", "Others"];
-const newRow = () => ({ id: Date.now() + Math.random(), type: "", amount: "" });
-
 const FREQ_OPTIONS = ["Monthly", "Quarterly", "Bi-annually", "Annually", "One-time"];
 
-function AllowanceEditor({ rows, onChange, label }) {
+function AllowanceEditor({ rows, onChange, label, fmt }) {
   const add = () => onChange([...rows, { id: Date.now() + Math.random(), type: "", amount: "", freq: "Monthly" }]);
   const remove = (id) => onChange(rows.filter(r => r.id !== id));
   const update = (id, field, val) => onChange(rows.map(r => r.id === id ? { ...r, [field]: val } : r));
@@ -42,13 +64,13 @@ function AllowanceEditor({ rows, onChange, label }) {
         </div>
       )}
       {rows.map((r) => (
-        <div key={r.id} style={{ display: "grid", gridTemplateColumns: "1fr 130px 130px 36px", gap: "0 8px", marginBottom: 8, alignItems: "center" }}>
+        <div key={r.id} style={{ display: "grid", gridTemplateColumns: "1fr 140px 130px 36px", gap: "0 8px", marginBottom: 8, alignItems: "center" }}>
           <input value={r.type} onChange={e => update(r.id, "type", e.target.value)}
-            placeholder="Allowance type e.g. Transport, Housing"
+            placeholder="e.g. Transport, Housing, Meal"
             style={inputStyle}
             onFocus={e => e.target.style.borderColor = RED} onBlur={e => e.target.style.borderColor = "#d1d5db"} />
           <input type="number" value={r.amount} onChange={e => update(r.id, "amount", e.target.value)}
-            placeholder="Amount (MYR)"
+            placeholder="Amount"
             style={{ ...inputStyle, textAlign: "right" }}
             onFocus={e => e.target.style.borderColor = RED} onBlur={e => e.target.style.borderColor = "#d1d5db"} />
           <select value={r.freq || "Monthly"} onChange={e => update(r.id, "freq", e.target.value)}
@@ -104,7 +126,7 @@ function Grid({ cols = 2, children }) {
   return <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: "0 18px" }}>{children}</div>;
 }
 
-function DeltaPreview({ curr, offer, signOn, currAllowances, offerAllowances }) {
+function DeltaPreview({ curr, offer, signOn, currAllowances, offerAllowances, fmt }) {
   const cAllow = sumAllow(currAllowances);
   const oAllow = sumAllow(offerAllowances);
   const rows = [
@@ -194,7 +216,19 @@ function JustificationBlock({ items, onChange }) {
 }
 
 async function generateDocx(payload) {
-  const MYR = (v) => (v && n(v)) ? `MYR ${Number(v).toLocaleString("en-MY")}` : "—";
+  const { currencyCode, currencyLocale } = payload;
+
+  const C = (v) => {
+    if (!v && v !== 0) return "—";
+    const num = n(v);
+    if (!num) return "—";
+    try {
+      return `${currencyCode} ${num.toLocaleString(currencyLocale, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    } catch {
+      return `${currencyCode} ${num.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    }
+  };
+
   const fmtD = (v) => { if (v === null || v === undefined) return "—"; const s = v > 0 ? "▲" : "▼"; return `${s} ${Math.abs(v).toFixed(2)}%`; };
   const pctC = (c, o) => { if (!n(c) || !n(o)) return null; return ((n(o) - n(c)) / n(c)) * 100; };
 
@@ -246,15 +280,13 @@ async function generateDocx(payload) {
 
   const expLines = (experience || "").split("\n").filter(l => l.trim());
 
-  // Build comp rows
   const compRows = [];
   let even = true;
   const cr = (label, c, o, d, bold = false) => { compRows.push(compRow(label, c, o, d, even, bold)); even = !even; };
 
-  cr("Monthly Base", MYR(curr.monthly), MYR(offer.monthly), pctC(curr.monthly, offer.monthly));
+  cr("Monthly Base", C(curr.monthly), C(offer.monthly), pctC(curr.monthly, offer.monthly));
   cr("Month", "12", "12", null);
 
-  // Get unique allowance type names across both current and offer
   const allTypes = [...new Set([
     ...currAllowances.map(r => r.type || "Allowance"),
     ...offerAllowances.map(r => r.type || "Allowance"),
@@ -262,21 +294,24 @@ async function generateDocx(payload) {
   allTypes.forEach(type => {
     const cR = currAllowances.find(r => (r.type || "Allowance") === type);
     const oR = offerAllowances.find(r => (r.type || "Allowance") === type);
-    cr(type, MYR(cR?.amount), MYR(oR?.amount), pctC(cR?.amount, oR?.amount));
+    cr(
+      `${type}${cR?.freq && cR.freq !== "Monthly" ? ` (${cR.freq})` : ""}`,
+      C(cR?.amount), C(oR?.amount), pctC(cR?.amount, oR?.amount)
+    );
   });
   const cAllowTotal = sumAllow(currAllowances);
   const oAllowTotal = sumAllow(offerAllowances);
-  if (allTypes.length > 1) cr("Total Allowance / month", MYR(cAllowTotal), MYR(oAllowTotal), pctC(cAllowTotal, oAllowTotal));
+  if (allTypes.length > 1) cr("Total Allowance / month", C(cAllowTotal), C(oAllowTotal), pctC(cAllowTotal, oAllowTotal));
 
   if (n(curr.rsuTotal) || n(offer.rsuTotal))
-    cr("Stock / Option (Total Grant)", MYR(curr.rsuTotal), MYR(offer.rsuTotal), pctC(curr.rsuTotal, offer.rsuTotal));
+    cr("Stock / Option (Total Grant)", C(curr.rsuTotal), C(offer.rsuTotal), pctC(curr.rsuTotal, offer.rsuTotal));
   if (n(curr.rsuAnnual) || n(offer.rsuAnnual))
-    cr("Stock / Option (Annualised)", MYR(curr.rsuAnnual), MYR(offer.rsuAnnual), pctC(curr.rsuAnnual, offer.rsuAnnual));
+    cr("Stock / Option (Annualised)", C(curr.rsuAnnual), C(offer.rsuAnnual), pctC(curr.rsuAnnual, offer.rsuAnnual));
 
-  cr("Target Bonus (month)", MYR(curr.bonus), MYR(offer.bonus), pctC(curr.bonus, offer.bonus));
+  cr("Target Bonus (month)", C(curr.bonus), C(offer.bonus), pctC(curr.bonus, offer.bonus));
   cr("Other Cash / Year", "—", "—", null);
-  cr("Total Cash / Year", MYR(curr.ttc), MYR(offer.ttc), pctC(curr.ttc, offer.ttc));
-  compRows.push(compRow("Total Package", MYR(curr.ttc), MYR(offer.ttc), pctC(curr.ttc, offer.ttc), even, true));
+  cr("Total Cash / Year", C(curr.ttc), C(offer.ttc), pctC(curr.ttc, offer.ttc));
+  compRows.push(compRow("Total Package", C(curr.ttc), C(offer.ttc), pctC(curr.ttc, offer.ttc), even, true));
 
   const bD = pctC(curr.monthly, offer.monthly);
   const tD = pctC(curr.ttc, offer.ttc);
@@ -286,12 +321,11 @@ async function generateDocx(payload) {
     tD !== null ? `Total package ${tD < 0 ? "decrease" : "increase"} by ${Math.abs(tD).toFixed(2)}%` : null,
   ].filter(Boolean);
 
-  // Breakdown bullets under Monthly Gross Base line
   const breakdownLines = [
-    ...currAllowances.filter(r => n(r.amount)).map(r => `${r.type || "Allowance"}: ${MYR(r.amount)} (${r.freq || "Monthly"})`),
+    ...currAllowances.filter(r => n(r.amount)).map(r => `${r.type || "Allowance"}: ${C(r.amount)} (${r.freq || "Monthly"})`),
     ...(n(curr.rsuTotal) ? [
-      `RSU / Stock Options — Total Grant: ${MYR(curr.rsuTotal)}`,
-      `RSU / Stock Options — Annualised (over ${curr.rsuVestYears || "?"} years): ${MYR(curr.rsuAnnual)}`,
+      `RSU / Stock Options — Total Grant: ${C(curr.rsuTotal)}`,
+      `RSU / Stock Options — Annualised (over ${curr.rsuVestYears || "?"} years): ${C(curr.rsuAnnual)}`,
     ] : []),
   ];
 
@@ -323,7 +357,7 @@ async function generateDocx(payload) {
         spacer(),
 
         heading("Current/Last Drawn Salary Details"),
-        para(`Monthly Gross Base: ${MYR(curr.monthly)} x 12`),
+        para(`Monthly Gross Base: ${C(curr.monthly)} x 12`),
         ...breakdownLines.map(l => bullet(l)),
         spacer(),
 
@@ -360,13 +394,13 @@ async function generateDocx(payload) {
         }),
 
         spacer(),
-        para(`At our offered monthly base salary of ${MYR(offer.monthly)} we are looking at`),
+        para(`At our offered monthly base salary of ${C(offer.monthly)} we are looking at`),
         ...summaryLines.map(t => bullet(t)),
         spacer(),
 
         ...(n(offer.signOn) > 0 ? [
           heading("Sign-on bonus proposal"),
-          bullet(`Proposed ${offer.signOnMonths} months of bonus at ${MYR(offer.signOn)}, ${offer.signOnPctTTC}% of TP as sign-on bonus, to be paid over ${offer.signOnSchedule || "—"} with ${offer.signOnBond || "—"} bond.`),
+          bullet(`Proposed ${offer.signOnMonths} months of bonus at ${C(offer.signOn)}, ${offer.signOnPctTTC}% of TP as sign-on bonus, to be paid over ${offer.signOnSchedule || "—"} with ${offer.signOnBond || "—"} bond.`),
           spacer(),
         ] : []),
 
@@ -391,6 +425,8 @@ async function generateDocx(payload) {
 }
 
 export default function App() {
+  const [currency, setCurrency] = useState(SEA_CURRENCIES[0]);
+
   const [name, setName] = useState("");
   const [peopleLink, setPeopleLink] = useState("");
   const [jobTitle, setJobTitle] = useState("");
@@ -420,6 +456,8 @@ export default function App() {
 
   const [justItems, setJustItems] = useState([]);
   const [status, setStatus] = useState(null);
+
+  const fmt = (v) => fmtCurrency(v, currency.code, currency.locale);
 
   const currAnnual = n(currMonthly) * 12;
   const currTotalAllowMonthly = sumAllow(currAllowances);
@@ -454,6 +492,8 @@ export default function App() {
       await generateDocx({
         name, peopleLink, jobTitle, jobFamily, jobLevel, education, experience, currentEmployer, memoDate,
         currAllowances, offerAllowances,
+        currencyCode: currency.code,
+        currencyLocale: currency.locale,
         curr: { ...curr, rsuVestYears: currRSUVestYears },
         offer: { ...offer, signOn: n(signOnAmt), signOnMonths, signOnPctTTC, signOnSchedule, signOnBond },
         deltas: { base: pct(currMonthly, offerMonthly), ttc: ttcDelta, firstYear: firstYearDelta, isPremium },
@@ -469,6 +509,7 @@ export default function App() {
   return (
     <div style={{ minHeight: "100vh", background: "#f1f5f9", fontFamily: FONT }}>
       <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
       <div style={{ background: DARK, borderBottom: `4px solid ${RED}` }}>
         <div style={{ maxWidth: 820, margin: "0 auto", padding: "20px 24px", display: "flex", alignItems: "center", gap: 14 }}>
           <div style={{ width: 36, height: 36, background: RED, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -485,6 +526,28 @@ export default function App() {
       </div>
 
       <div style={{ maxWidth: 820, margin: "0 auto", padding: "28px 24px 60px" }}>
+
+        <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, marginBottom: 20, padding: "16px 20px", display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ fontSize: 26 }}>{currency.flag}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#6b7280", marginBottom: 5, fontFamily: FONT }}>Currency</div>
+            <select
+              value={currency.code}
+              onChange={e => setCurrency(SEA_CURRENCIES.find(c => c.code === e.target.value))}
+              style={{ ...inputStyle, fontWeight: 600, fontSize: 14, maxWidth: 380, cursor: "pointer" }}
+              onFocus={e => e.target.style.borderColor = RED}
+              onBlur={e => e.target.style.borderColor = "#d1d5db"}
+            >
+              {SEA_CURRENCIES.map(c => (
+                <option key={c.code} value={c.code}>{c.flag}  {c.label}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 20px", textAlign: "center", minWidth: 72 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#94a3b8", marginBottom: 2 }}>Code</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: DARK }}>{currency.code}</div>
+          </div>
+        </div>
 
         <Card title="1 · Basic Information">
           <Grid>
@@ -522,7 +585,7 @@ export default function App() {
 
         <Card title="2 · Current / Last Drawn Compensation">
           <Grid>
-            <Field label="Monthly Gross Base (MYR)" value={currMonthly} onChange={setCurrMonthly} type="number" />
+            <Field label={`Monthly Gross Base (${currency.code})`} value={currMonthly} onChange={setCurrMonthly} type="number" />
             <Field label="Annual Base (auto)" autoVal={currMonthly ? fmt(currAnnual) : ""} />
           </Grid>
           <Grid>
@@ -530,11 +593,11 @@ export default function App() {
             <Field label="Target Perf. Bonus (auto)" autoVal={currBonus ? fmt(currBonus) : ""} />
           </Grid>
           <Field label="Override Bonus Amount (optional)" value={currBonusOverride} onChange={setCurrBonusOverride} type="number" />
-          <AllowanceEditor rows={currAllowances} onChange={setCurrAllowances} label="Allowances (Current)" />
+          <AllowanceEditor rows={currAllowances} onChange={setCurrAllowances} label="Allowances (Current)" fmt={fmt} />
           <div style={{ marginBottom: 14 }}>
             <label style={labelStyle}>RSU / Stock Options (Current)</label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 18px" }}>
-              <Field label="Total RSU Value (MYR)" value={currRSUTotal} onChange={setCurrRSUTotal} type="number" />
+              <Field label={`Total RSU Value (${currency.code})`} value={currRSUTotal} onChange={setCurrRSUTotal} type="number" />
               <Field label="Vesting Period (years)" value={currRSUVestYears} onChange={setCurrRSUVestYears} type="number" />
               <Field label="Annualised RSU (auto)" autoVal={currRSUAnnual ? fmt(currRSUAnnual) : ""} hint="Total ÷ Vesting years" />
             </div>
@@ -551,7 +614,7 @@ export default function App() {
 
         <Card title="3 · Our Offer">
           <Grid>
-            <Field label="Offer Monthly Gross Base (MYR)" value={offerMonthly} onChange={setOfferMonthly} type="number" />
+            <Field label={`Offer Monthly Gross Base (${currency.code})`} value={offerMonthly} onChange={setOfferMonthly} type="number" />
             <Field label="Offer Annual Base (auto)" autoVal={offerMonthly ? fmt(offerAnnual) : ""} />
           </Grid>
           <Grid>
@@ -559,17 +622,17 @@ export default function App() {
             <Field label="Offer Target Bonus (auto)" autoVal={offerBonus ? fmt(offerBonus) : ""} />
           </Grid>
           <Field label="Override Offer Bonus Amount (optional)" value={offerBonusOverride} onChange={setOfferBonusOverride} type="number" />
-          <AllowanceEditor rows={offerAllowances} onChange={setOfferAllowances} label="Allowances (Offer)" />
+          <AllowanceEditor rows={offerAllowances} onChange={setOfferAllowances} label="Allowances (Offer)" fmt={fmt} />
           <div style={{ marginBottom: 14 }}>
             <label style={labelStyle}>RSU / Stock Options (Offer)</label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 18px" }}>
-              <Field label="Total RSU Value (MYR)" value={offerRSUTotal} onChange={setOfferRSUTotal} type="number" />
+              <Field label={`Total RSU Value (${currency.code})`} value={offerRSUTotal} onChange={setOfferRSUTotal} type="number" />
               <Field label="Vesting Period (years)" value={offerRSUVestYears} onChange={setOfferRSUVestYears} type="number" />
               <Field label="Annualised RSU (auto)" autoVal={offerRSUAnnual ? fmt(offerRSUAnnual) : ""} hint="Total ÷ Vesting years" />
             </div>
           </div>
           <Grid>
-            <Field label="Sign-on Bonus (MYR)" value={signOnAmt} onChange={setSignOnAmt} type="number" hint={hasSignOn ? "Justification section required" : ""} />
+            <Field label={`Sign-on Bonus (${currency.code})`} value={signOnAmt} onChange={setSignOnAmt} type="number" hint={hasSignOn ? "Justification section required" : ""} />
             <Field label="Sign-on as % of TTC (auto)" autoVal={signOnPctTTC ? `${signOnPctTTC}%  (${signOnMonths} months)` : ""} />
           </Grid>
           {hasSignOn && (
@@ -578,7 +641,7 @@ export default function App() {
               <Field label="Bond Period" value={signOnBond} onChange={setSignOnBond} />
             </Grid>
           )}
-          {offerMonthly && <DeltaPreview curr={curr} offer={offer} signOn={n(signOnAmt)} currAllowances={currAllowances} offerAllowances={offerAllowances} />}
+          {offerMonthly && <DeltaPreview curr={curr} offer={offer} signOn={n(signOnAmt)} currAllowances={currAllowances} offerAllowances={offerAllowances} fmt={fmt} />}
           {offerMonthly && (
             <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
               {[["Base Change", pct(currMonthly, offerMonthly)], ["TTC Change", ttcDelta], ["1st-Year Package", firstYearDelta]].map(([k, v]) => (
@@ -618,6 +681,7 @@ export default function App() {
           )}
           {status === "error" && <div style={{ fontSize: 12, color: RED, marginTop: 8 }}>Something went wrong — please try again or contact support.</div>}
         </div>
+
       </div>
     </div>
   );
