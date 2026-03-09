@@ -13,10 +13,10 @@ const SEA_CURRENCIES = [
   { code: "THB", label: "THB — Thai Baht",            locale: "th-TH", flag: "🇹🇭", defaultMonths: 12 },
   { code: "PHP", label: "PHP — Philippine Peso",      locale: "en-PH", flag: "🇵🇭", defaultMonths: 13 },
   { code: "VND", label: "VND — Vietnamese Dong",      locale: "vi-VN", flag: "🇻🇳", defaultMonths: 12 },
-  //{ code: "MMK", label: "MMK — Myanmar Kyat",         locale: "my-MM", flag: "🇲🇲", defaultMonths: 12 },
-  //{ code: "KHR", label: "KHR — Cambodian Riel",       locale: "km-KH", flag: "🇰🇭", defaultMonths: 12 },
-  //{ code: "LAK", label: "LAK — Lao Kip",              locale: "lo-LA", flag: "🇱🇦", defaultMonths: 12 },
-  //{ code: "BND", label: "BND — Brunei Dollar",        locale: "ms-BN", flag: "🇧🇳", defaultMonths: 12 },
+  { code: "MMK", label: "MMK — Myanmar Kyat",         locale: "my-MM", flag: "🇲🇲", defaultMonths: 12 },
+  { code: "KHR", label: "KHR — Cambodian Riel",       locale: "km-KH", flag: "🇰🇭", defaultMonths: 12 },
+  { code: "LAK", label: "LAK — Lao Kip",              locale: "lo-LA", flag: "🇱🇦", defaultMonths: 12 },
+  { code: "BND", label: "BND — Brunei Dollar",        locale: "ms-BN", flag: "🇧🇳", defaultMonths: 12 },
 ];
 
 const n = (v) => parseFloat(v) || 0;
@@ -35,7 +35,11 @@ const fmtCurrency = (v, code, locale) => {
 const pct = (c, o) => { const cv = n(c), ov = n(o); if (!cv || !ov) return null; return ((ov - cv) / cv) * 100; };
 const fmtPct = (val) => { if (val === null || isNaN(val)) return "—"; const s = val >= 0 ? "▲" : "▼"; return `${s} ${Math.abs(val).toFixed(2)}%`; };
 const pctColor = (val) => { if (val === null) return "#999"; return val > 0 ? "#16a34a" : "#dc2626"; };
-const sumAllow = (rows) => rows.reduce((s, r) => s + n(r.amount), 0);
+const FREQ_MULTIPLIER = { "Monthly": 12, "Quarterly": 4, "Bi-annually": 2, "Annually": 1, "One-time": 1 };
+// Returns annual total across all allowance rows
+const sumAllowAnnual = (rows) => rows.reduce((s, r) => s + n(r.amount) * (FREQ_MULTIPLIER[r.freq || "Monthly"] || 12), 0);
+// Returns monthly equivalent (annual / 12) — used for TTC calculations
+const sumAllow = (rows) => sumAllowAnnual(rows) / 12;
 
 const FONT = "'IBM Plex Sans', 'Segoe UI', sans-serif";
 const RED = "#E02020";
@@ -83,7 +87,7 @@ function AllowanceEditor({ rows, onChange, label, fmt }) {
       ))}
       {rows.length > 0 && (
         <div style={{ textAlign: "right", fontSize: 12, fontWeight: 700, color: DARK, marginTop: 4 }}>
-          Monthly equiv: {fmt(sumAllow(rows))} &nbsp;|&nbsp; Annual equiv: {fmt(sumAllow(rows) * 12)}
+          Monthly equiv: {fmt(sumAllow(rows))} &nbsp;|&nbsp; Annual equiv: {fmt(sumAllowAnnual(rows))}
         </div>
       )}
     </div>
@@ -266,9 +270,13 @@ async function generateDocx(payload) {
   const numbered = (ref, text, bold = false) => new Paragraph({ numbering: { reference: ref, level: 0 }, spacing: { before: 60, after: 40 }, children: [new TextRun({ text, font: "Arial", size: 20, bold })] });
 
   const { curr, offer, name, peopleLink, jobTitle, jobFamily, jobLevel,
-    education, experience, currentEmployer, justification, currAllowances, offerAllowances } = payload;
+    education, experience, workingYears, currentEmployer, justification, currAllowances, offerAllowances } = payload;
 
-  const expLines = (experience || "").split("\n").filter(l => l.trim());
+  const autoBullet = (name && education) ? `${name} graduated from ${education}` : null;
+  const expLines = [
+    ...(autoBullet ? [autoBullet] : []),
+    ...(experience || "").split("\n").filter(l => l.trim()),
+  ];
 
   // ── Comp table rows: Monthly Base → Month → Target Bonus → Allowance (total) → RSU → Other → TCC → Nett Take Home → Total Package ──
   const compRows = [];
@@ -282,8 +290,11 @@ async function generateDocx(payload) {
   // Allowances — single total row (no breakdown by type)
   const cAllowTotal = sumAllow(currAllowances);
   const oAllowTotal = sumAllow(offerAllowances);
-  if (cAllowTotal || oAllowTotal)
-    cr("Total Allowance / month", C(cAllowTotal), C(oAllowTotal), pctC(cAllowTotal, oAllowTotal));
+  if (true)
+    const cAllowAnnual = sumAllowAnnual(currAllowances);
+    const oAllowAnnual = sumAllowAnnual(offerAllowances);
+    if (cAllowAnnual || oAllowAnnual)
+      cr("Total Allowance (Annual)", C(cAllowAnnual), C(oAllowAnnual), pctC(cAllowAnnual, oAllowAnnual));
 
   if (n(curr.rsuTotal) || n(offer.rsuTotal))
     cr("Stock / Option (Total Grant)", C(curr.rsuTotal), C(offer.rsuTotal), pctC(curr.rsuTotal, offer.rsuTotal));
@@ -309,7 +320,7 @@ async function generateDocx(payload) {
 
   // ── Current/Last Drawn detail lines — plain para(), no bullets, same indent level as Monthly Gross Base ──
   const detailLines = [
-    ...(cAllowTotal ? [`Total Allowance: ${C(cAllowTotal)} / month  (${C(cAllowTotal * 12)} / year)`] : []),
+    ...(cAllowTotal ? [`Total Allowance: ${C(sumAllowAnnual(currAllowances))} / year  (${C(cAllowTotal)} / month equiv)`] : []),
     ...(n(curr.rsuTotal) ? [
       `RSU / Stock Options — Total Grant: ${C(curr.rsuTotal)}`,
       `RSU / Stock Options — Annualised (over ${curr.rsuVestYears || "?"} years): ${C(curr.rsuAnnual)}`,
@@ -362,7 +373,7 @@ async function generateDocx(payload) {
             infoRow("Name",               name || "—",            "Job Family",  jobFamily || "—"),
             infoRow("Bachelor",           education || "—",       "Level",       jobLevel || "—",  "F9FAFB"),
             infoRow("Master",             "—",                    "TP上限",      "—"),
-            infoRow("Working Experience", currentEmployer || "—", "TP/TP上限",   "—",              "F9FAFB"),
+            infoRow("Working Experience", workingYears ? `${workingYears} years` : "—", "TP/TP上限",   "—",              "F9FAFB"),
             infoRow("Current Employer",   currentEmployer || "—", "TP下限",      "—"),
             infoRow("Level",              jobLevel || "—",        "TP/TP下限",   "—",              "F9FAFB"),
             new TableRow({ children: [
@@ -425,6 +436,7 @@ export default function App() {
   const [education, setEducation] = useState("");
   const [experience, setExperience] = useState("");
   const [currentEmployer, setCurrentEmployer] = useState("");
+  const [workingYears, setWorkingYears] = useState("");
   const [memoDate, setMemoDate] = useState("");
 
   const [currMonthly, setCurrMonthly] = useState("");
@@ -489,7 +501,7 @@ export default function App() {
     setStatus("loading");
     try {
       await generateDocx({
-        name, peopleLink, jobTitle, jobFamily, jobLevel, education, experience, currentEmployer, memoDate,
+        name, peopleLink, jobTitle, jobFamily, jobLevel, education, experience, workingYears, currentEmployer, memoDate,
         currAllowances, offerAllowances,
         currencyCode: currency.code,
         currencyLocale: currency.locale,
@@ -589,6 +601,10 @@ export default function App() {
           <Grid>
             <Field label="Proposed Job Level" value={jobLevel} onChange={setJobLevel} />
             <Field label="Current Employer" value={currentEmployer} onChange={setCurrentEmployer} />
+          </Grid>
+          <Grid>
+            <Field label="Years of Working Experience" value={workingYears} onChange={setWorkingYears} type="number" placeholder="e.g. 6" hint="Shown in Candidate Information table" />
+            <div />
           </Grid>
           <Field label="Education" value={education} onChange={setEducation} />
           <div style={{ marginBottom: 14 }}>
