@@ -13,10 +13,10 @@ const SEA_CURRENCIES = [
   { code: "THB", label: "THB — Thai Baht",            locale: "th-TH", flag: "🇹🇭", defaultMonths: 12 },
   { code: "PHP", label: "PHP — Philippine Peso",      locale: "en-PH", flag: "🇵🇭", defaultMonths: 13 },
   { code: "VND", label: "VND — Vietnamese Dong",      locale: "vi-VN", flag: "🇻🇳", defaultMonths: 12 },
-  { code: "MMK", label: "MMK — Myanmar Kyat",         locale: "my-MM", flag: "🇲🇲", defaultMonths: 12 },
-  { code: "KHR", label: "KHR — Cambodian Riel",       locale: "km-KH", flag: "🇰🇭", defaultMonths: 12 },
-  { code: "LAK", label: "LAK — Lao Kip",              locale: "lo-LA", flag: "🇱🇦", defaultMonths: 12 },
-  { code: "BND", label: "BND — Brunei Dollar",        locale: "ms-BN", flag: "🇧🇳", defaultMonths: 12 },
+  //{ code: "MMK", label: "MMK — Myanmar Kyat",         locale: "my-MM", flag: "🇲🇲", defaultMonths: 12 },
+  //{ code: "KHR", label: "KHR — Cambodian Riel",       locale: "km-KH", flag: "🇰🇭", defaultMonths: 12 },
+  //{ code: "LAK", label: "LAK — Lao Kip",              locale: "lo-LA", flag: "🇱🇦", defaultMonths: 12 },
+  //{ code: "BND", label: "BND — Brunei Dollar",        locale: "ms-BN", flag: "🇧🇳", defaultMonths: 12 },
 ];
 
 const n = (v) => parseFloat(v) || 0;
