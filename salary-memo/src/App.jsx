@@ -268,11 +268,7 @@ async function generateDocx(payload) {
   const { curr, offer, name, peopleLink, jobTitle, jobFamily, jobLevel,
     education, experience, currentEmployer, justification, currAllowances, offerAllowances } = payload;
 
-  const autoBullet = (name && education) ? `${name} graduated from ${education}` : null;
-const expLines = [
-  ...(autoBullet ? [autoBullet] : []),
-  ...(experience || "").split("\n").filter(l => l.trim()),
-];
+  const expLines = (experience || "").split("\n").filter(l => l.trim());
 
   // ── Comp table rows: Monthly Base → Month → Target Bonus → Allowance (total) → RSU → Other → TCC → Nett Take Home → Total Package ──
   const compRows = [];
@@ -517,9 +513,11 @@ export default function App() {
     <div style={{ minHeight: "100vh", background: "#f1f5f9", fontFamily: FONT }}>
       <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-      <div style={{ background: DARK, borderBottom: `4px solid #ffffff`}}>
+      <div style={{ background: DARK, borderBottom: `4px solid ${RED}` }}>
         <div style={{ maxWidth: 820, margin: "0 auto", padding: "20px 24px", display: "flex", alignItems: "center", gap: 14 }}>
-        
+          <div style={{ width: 36, height: 36, background: RED, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ color: "#fff", fontSize: 18, fontWeight: 900 }}>S</span>
+          </div>
           <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>Salary Document Builder</div>
           {isPremium && (
             <div style={{ marginLeft: "auto", background: "#7f1d1d", border: "1px solid #dc2626", borderRadius: 8, padding: "6px 14px", display: "flex", alignItems: "center", gap: 8 }}>
@@ -598,25 +596,20 @@ export default function App() {
             <textarea value={experience} onChange={e => setExperience(e.target.value)}
               rows={4} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }}
               onFocus={e => e.target.style.borderColor = RED} onBlur={e => e.target.style.borderColor = "#d1d5db"} />
-            {experience && (
+            {(experience || (name && education)) && (
               <div style={{ marginTop: 8, padding: "10px 14px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6 }}>
                 <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#94a3b8", marginBottom: 6 }}>Preview — bullet points in document</div>
                 {(() => {
-  const autoBullet = (name && education) ? `${name} graduated from ${education}` : null;
-  const lines = experience.split("\n").filter(l => l.trim());
-  const allLines = autoBullet ? [autoBullet, ...lines] : lines;
-  return allLines.map((line, i) => (
-    <div key={i} style={{ fontSize: 12, color: "#374151", display: "flex", gap: 8, marginBottom: 3 }}>
-      <span style={{ color: RED, fontWeight: 700, flexShrink: 0 }}>•</span>
-      <span>{line}</span>
-    </div>
-  ));
-})()}
-                  <div key={i} style={{ fontSize: 12, color: "#374151", display: "flex", gap: 8, marginBottom: 3 }}>
-                    <span style={{ color: RED, fontWeight: 700, flexShrink: 0 }}>•</span>
-                    <span>{line.trim()}</span>
-                  </div>
-                ))}
+                  const autoBullet = (name && education) ? `${name} graduated from ${education}` : null;
+                  const lines = experience.split("\n").filter(l => l.trim());
+                  const allLines = autoBullet ? [autoBullet, ...lines] : lines;
+                  return allLines.map((line, i) => (
+                    <div key={i} style={{ fontSize: 12, color: "#374151", display: "flex", gap: 8, marginBottom: 3 }}>
+                      <span style={{ color: RED, fontWeight: 700, flexShrink: 0 }}>•</span>
+                      <span style={{ color: i === 0 && autoBullet ? "#6b7280" : "#374151", fontStyle: i === 0 && autoBullet ? "italic" : "normal" }}>{line}</span>
+                    </div>
+                  ));
+                })()}
               </div>
             )}
           </div>
