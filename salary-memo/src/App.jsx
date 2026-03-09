@@ -595,11 +595,11 @@ export default function App() {
           </Grid>
           <Field label="People Link / Application ID" value={peopleLink} onChange={setPeopleLink} />
           <Grid>
-            <Field label="Job Requisition" value={jobTitle} onChange={setJobTitle} />
-            <Field label="Job Family" placeholder="E-Commerce Operation" value={jobFamily} onChange={setJobFamily} />
+            <Field label="Job Title" value={jobTitle} onChange={setJobTitle} />
+            <Field label="Job Family" value={jobFamily} onChange={setJobFamily} />
           </Grid>
           <Grid>
-            <Field label="Proposed Job Level" value={jobLevel} onChange={setJobLevel} />
+            <Field label="Job Level" value={jobLevel} onChange={setJobLevel} />
             <Field label="Current Employer" value={currentEmployer} onChange={setCurrentEmployer} />
           </Grid>
           <Grid>
