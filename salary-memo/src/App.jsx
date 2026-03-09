@@ -513,7 +513,7 @@ export default function App() {
     <div style={{ minHeight: "100vh", background: "#f1f5f9", fontFamily: FONT }}>
       <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-      <div style={{ background: DARK, borderBottom: `4px solid ${RED}` }}>
+      <div style={{ background: DARK, borderBottom: `4px solid #ffffff`}}>
         <div style={{ maxWidth: 820, margin: "0 auto", padding: "20px 24px", display: "flex", alignItems: "center", gap: 14 }}>
         
           <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>Salary Document Builder</div>
