@@ -586,7 +586,7 @@ export default function App() {
           <Field label="People Link / Application ID" value={peopleLink} onChange={setPeopleLink} />
           <Grid>
             <Field label="Job Requisition" value={jobTitle} onChange={setJobTitle} />
-            <Field llabel="Job Family" placeholder="E-Commerce Operation" value={jobFamily} onChange={setJobFamily} />
+            <Field label="Job Family" placeholder="E-Commerce Operation" value={jobFamily} onChange={setJobFamily} />
           </Grid>
           <Grid>
             <Field label="Proposed Job Level" value={jobLevel} onChange={setJobLevel} />
