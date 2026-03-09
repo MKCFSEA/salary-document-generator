@@ -268,7 +268,11 @@ async function generateDocx(payload) {
   const { curr, offer, name, peopleLink, jobTitle, jobFamily, jobLevel,
     education, experience, currentEmployer, justification, currAllowances, offerAllowances } = payload;
 
-  const expLines = (experience || "").split("\n").filter(l => l.trim());
+  const autoBullet = (name && education) ? `${name} graduated from ${education}` : null;
+const expLines = [
+  ...(autoBullet ? [autoBullet] : []),
+  ...(experience || "").split("\n").filter(l => l.trim()),
+];
 
   // ── Comp table rows: Monthly Base → Month → Target Bonus → Allowance (total) → RSU → Other → TCC → Nett Take Home → Total Package ──
   const compRows = [];
@@ -581,11 +585,11 @@ export default function App() {
           </Grid>
           <Field label="People Link / Application ID" value={peopleLink} onChange={setPeopleLink} />
           <Grid>
-            <Field label="Job Title" value={jobTitle} onChange={setJobTitle} />
-            <Field label="Job Family" value={jobFamily} onChange={setJobFamily} />
+            <Field label="Job Requisition" value={jobTitle} onChange={setJobTitle} />
+            <Field llabel="Job Family" placeholder="E-Commerce Operation" value={jobFamily} onChange={setJobFamily} />
           </Grid>
           <Grid>
-            <Field label="Job Level" value={jobLevel} onChange={setJobLevel} />
+            <Field label="Proposed Job Level" value={jobLevel} onChange={setJobLevel} />
             <Field label="Current Employer" value={currentEmployer} onChange={setCurrentEmployer} />
           </Grid>
           <Field label="Education" value={education} onChange={setEducation} />
@@ -597,7 +601,17 @@ export default function App() {
             {experience && (
               <div style={{ marginTop: 8, padding: "10px 14px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6 }}>
                 <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#94a3b8", marginBottom: 6 }}>Preview — bullet points in document</div>
-                {experience.split("\n").filter(l => l.trim()).map((line, i) => (
+                {(() => {
+  const autoBullet = (name && education) ? `${name} graduated from ${education}` : null;
+  const lines = experience.split("\n").filter(l => l.trim());
+  const allLines = autoBullet ? [autoBullet, ...lines] : lines;
+  return allLines.map((line, i) => (
+    <div key={i} style={{ fontSize: 12, color: "#374151", display: "flex", gap: 8, marginBottom: 3 }}>
+      <span style={{ color: RED, fontWeight: 700, flexShrink: 0 }}>•</span>
+      <span>{line}</span>
+    </div>
+  ));
+})()}
                   <div key={i} style={{ fontSize: 12, color: "#374151", display: "flex", gap: 8, marginBottom: 3 }}>
                     <span style={{ color: RED, fontWeight: 700, flexShrink: 0 }}>•</span>
                     <span>{line.trim()}</span>
