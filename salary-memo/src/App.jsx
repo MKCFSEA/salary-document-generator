@@ -300,12 +300,12 @@ async function generateDocx(payload) {
   cr("Target Bonus", C(curr.bonus), C(offer.bonus), pctC(curr.bonus, offer.bonus));
 
   // Allowances — single total row (no breakdown by type)
-const cAllowTotal = sumAllow(currAllowances);
-const oAllowTotal = sumAllow(offerAllowances);
-const cAllowAnnual = sumAllowAnnual(currAllowances);
-const oAllowAnnual = sumAllowAnnual(offerAllowances);
-if (cAllowAnnual || oAllowAnnual)
-  cr("Total Allowance (Annual)", C(cAllowAnnual), C(oAllowAnnual), pctC(cAllowAnnual, oAllowAnnual));
+  const cAllowTotal = sumAllow(currAllowances);
+  const oAllowTotal = sumAllow(offerAllowances);
+  const cAllowAnnual = sumAllowAnnual(currAllowances);
+  const oAllowAnnual = sumAllowAnnual(offerAllowances);
+  if (cAllowAnnual || oAllowAnnual)
+    cr("Total Allowance (Annual)", C(cAllowAnnual), C(oAllowAnnual), pctC(cAllowAnnual, oAllowAnnual));
 
   if (n(curr.rsuTotal) || n(offer.rsuTotal))
     cr("Stock / Option (Total Grant)", C(curr.rsuTotal), C(offer.rsuTotal), pctC(curr.rsuTotal, offer.rsuTotal));
