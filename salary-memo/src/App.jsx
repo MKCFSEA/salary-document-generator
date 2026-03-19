@@ -13,10 +13,10 @@ const SEA_CURRENCIES = [
   { code: "THB", label: "THB — Thai Baht",            locale: "th-TH", flag: "🇹🇭", defaultMonths: 12 },
   { code: "PHP", label: "PHP — Philippine Peso",      locale: "en-PH", flag: "🇵🇭", defaultMonths: 13 },
   { code: "VND", label: "VND — Vietnamese Dong",      locale: "vi-VN", flag: "🇻🇳", defaultMonths: 12 },
-  { code: "MMK", label: "MMK — Myanmar Kyat",         locale: "my-MM", flag: "🇲🇲", defaultMonths: 12 },
-  { code: "KHR", label: "KHR — Cambodian Riel",       locale: "km-KH", flag: "🇰🇭", defaultMonths: 12 },
-  { code: "LAK", label: "LAK — Lao Kip",              locale: "lo-LA", flag: "🇱🇦", defaultMonths: 12 },
-  { code: "BND", label: "BND — Brunei Dollar",        locale: "ms-BN", flag: "🇧🇳", defaultMonths: 12 },
+  //{ code: "MMK", label: "MMK — Myanmar Kyat",         locale: "my-MM", flag: "🇲🇲", defaultMonths: 12 },
+  //{ code: "KHR", label: "KHR — Cambodian Riel",       locale: "km-KH", flag: "🇰🇭", defaultMonths: 12 },
+  //{ code: "LAK", label: "LAK — Lao Kip",              locale: "lo-LA", flag: "🇱🇦", defaultMonths: 12 },
+  //{ code: "BND", label: "BND — Brunei Dollar",        locale: "ms-BN", flag: "🇧🇳", defaultMonths: 12 },
 ];
 
 const n = (v) => parseFloat(v) || 0;
@@ -37,7 +37,7 @@ const fmtPct = (val) => { if (val === null || isNaN(val)) return "—"; const s 
 const pctColor = (val) => { if (val === null) return "#999"; return val > 0 ? "#16a34a" : "#dc2626"; };
 const FREQ_MULTIPLIER = { "Monthly": 12, "Quarterly": 4, "Bi-annually": 2, "Annually": 1, "One-time": 1 };
 // Returns annual total across all allowance rows
-const sumAllowAnnual = (rows) => rows.reduce((s, r) => s + n(r.amount) * (FREQ_MULTIPLIER[r.freq || "Monthly"] || 12), 0);
+const sumAllowAnnual = (rows) => rows.reduce((s, r) => s + n(r.amount) * (FREQ_MULTIPLIER[r.freq] ?? FREQ_MULTIPLIER["Monthly"]), 0);
 // Returns monthly equivalent (annual / 12) — used for TTC calculations
 const sumAllow = (rows) => sumAllowAnnual(rows) / 12;
 
@@ -67,24 +67,36 @@ function AllowanceEditor({ rows, onChange, label, fmt }) {
           No allowances — click Add Row to add one
         </div>
       )}
-      {rows.map((r) => (
-        <div key={r.id} style={{ display: "grid", gridTemplateColumns: "1fr 140px 130px 36px", gap: "0 8px", marginBottom: 8, alignItems: "center" }}>
-          <input value={r.type} onChange={e => update(r.id, "type", e.target.value)}
-            placeholder="e.g. Transport, Housing, Meal"
-            style={inputStyle}
-            onFocus={e => e.target.style.borderColor = RED} onBlur={e => e.target.style.borderColor = "#d1d5db"} />
-          <input type="number" value={r.amount} onChange={e => update(r.id, "amount", e.target.value)}
-            placeholder="Amount"
-            style={{ ...inputStyle, textAlign: "right" }}
-            onFocus={e => e.target.style.borderColor = RED} onBlur={e => e.target.style.borderColor = "#d1d5db"} />
-          <select value={r.freq || "Monthly"} onChange={e => update(r.id, "freq", e.target.value)}
-            style={{ ...inputStyle, cursor: "pointer" }}
-            onFocus={e => e.target.style.borderColor = RED} onBlur={e => e.target.style.borderColor = "#d1d5db"}>
-            {FREQ_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
-          </select>
-          <button onClick={() => remove(r.id)} style={{ background: "none", border: "1px solid #fca5a5", color: "#ef4444", borderRadius: 6, width: 36, height: 38, cursor: "pointer", fontSize: 14, fontWeight: 700 }}>✕</button>
-        </div>
-      ))}
+      {rows.map((r) => {
+        const mult = FREQ_MULTIPLIER[r.freq] ?? 12;
+        const annual = n(r.amount) * mult;
+        const freqLabel = mult === 12 ? "× 12" : mult === 4 ? "× 4" : mult === 2 ? "× 2" : "× 1";
+        return (
+          <div key={r.id} style={{ marginBottom: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 130px 36px", gap: "0 8px", alignItems: "center" }}>
+              <input value={r.type} onChange={e => update(r.id, "type", e.target.value)}
+                placeholder="e.g. Transport, Housing, Meal"
+                style={inputStyle}
+                onFocus={e => e.target.style.borderColor = RED} onBlur={e => e.target.style.borderColor = "#d1d5db"} />
+              <input type="number" value={r.amount} onChange={e => update(r.id, "amount", e.target.value)}
+                placeholder="Amount"
+                style={{ ...inputStyle, textAlign: "right" }}
+                onFocus={e => e.target.style.borderColor = RED} onBlur={e => e.target.style.borderColor = "#d1d5db"} />
+              <select value={r.freq || "Monthly"} onChange={e => update(r.id, "freq", e.target.value)}
+                style={{ ...inputStyle, cursor: "pointer" }}
+                onFocus={e => e.target.style.borderColor = RED} onBlur={e => e.target.style.borderColor = "#d1d5db"}>
+                {FREQ_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
+              <button onClick={() => remove(r.id)} style={{ background: "none", border: "1px solid #fca5a5", color: "#ef4444", borderRadius: 6, width: 36, height: 38, cursor: "pointer", fontSize: 14, fontWeight: 700 }}>✕</button>
+            </div>
+            {n(r.amount) > 0 && (
+              <div style={{ textAlign: "right", fontSize: 11, color: "#6b7280", marginTop: 3 }}>
+                {fmt(n(r.amount))} {freqLabel} = <strong style={{ color: DARK }}>{fmt(annual)} / year</strong>
+              </div>
+            )}
+          </div>
+        );
+      })}
       {rows.length > 0 && (
         <div style={{ textAlign: "right", fontSize: 12, fontWeight: 700, color: DARK, marginTop: 4 }}>
           Monthly equiv: {fmt(sumAllow(rows))} &nbsp;|&nbsp; Annual equiv: {fmt(sumAllowAnnual(rows))}
