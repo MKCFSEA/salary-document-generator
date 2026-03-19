@@ -13,10 +13,10 @@ const SEA_CURRENCIES = [
   { code: "THB", label: "THB — Thai Baht",            locale: "th-TH", flag: "🇹🇭", defaultMonths: 12 },
   { code: "PHP", label: "PHP — Philippine Peso",      locale: "en-PH", flag: "🇵🇭", defaultMonths: 13 },
   { code: "VND", label: "VND — Vietnamese Dong",      locale: "vi-VN", flag: "🇻🇳", defaultMonths: 12 },
-  //{ code: "MMK", label: "MMK — Myanmar Kyat",         locale: "my-MM", flag: "🇲🇲", defaultMonths: 12 },
-  //{ code: "KHR", label: "KHR — Cambodian Riel",       locale: "km-KH", flag: "🇰🇭", defaultMonths: 12 },
-  //{ code: "LAK", label: "LAK — Lao Kip",              locale: "lo-LA", flag: "🇱🇦", defaultMonths: 12 },
-  //{ code: "BND", label: "BND — Brunei Dollar",        locale: "ms-BN", flag: "🇧🇳", defaultMonths: 12 },
+  { code: "MMK", label: "MMK — Myanmar Kyat",         locale: "my-MM", flag: "🇲🇲", defaultMonths: 12 },
+  { code: "KHR", label: "KHR — Cambodian Riel",       locale: "km-KH", flag: "🇰🇭", defaultMonths: 12 },
+  { code: "LAK", label: "LAK — Lao Kip",              locale: "lo-LA", flag: "🇱🇦", defaultMonths: 12 },
+  { code: "BND", label: "BND — Brunei Dollar",        locale: "ms-BN", flag: "🇧🇳", defaultMonths: 12 },
 ];
 
 const n = (v) => parseFloat(v) || 0;
@@ -484,15 +484,17 @@ export default function App() {
 
   const currAnnual = n(currMonthly) * salaryMonths;
   const currTotalAllowMonthly = sumAllow(currAllowances);
+  const currTotalAllowAnnual = sumAllowAnnual(currAllowances);
   const currRSUAnnual = (currRSUTotal && currRSUVestYears) ? n(currRSUTotal) / n(currRSUVestYears) : 0;
   const currBonus = currBonusOverride ? n(currBonusOverride) : n(currMonthly) * n(bonusMonths);
-  const currTTC = currAnnual + (currTotalAllowMonthly * 12) + currBonus;
+  const currTTC = currAnnual + currTotalAllowAnnual + currBonus;
 
   const offerAnnual = n(offerMonthly) * offerSalaryMonths;
   const offerTotalAllowMonthly = sumAllow(offerAllowances);
+  const offerTotalAllowAnnual = sumAllowAnnual(offerAllowances);
   const offerRSUAnnual = (offerRSUTotal && offerRSUVestYears) ? n(offerRSUTotal) / n(offerRSUVestYears) : 0;
   const offerBonus = offerBonusOverride ? n(offerBonusOverride) : n(offerMonthly) * n(offerBonusMonths || bonusMonths);
-  const offerTTC = offerAnnual + (offerTotalAllowMonthly * 12) + offerBonus;
+  const offerTTC = offerAnnual + offerTotalAllowAnnual + offerBonus;
   const offerFirstYear = offerTTC + n(signOnAmt);
 
   const ttcDelta = pct(currTTC, offerTTC);
